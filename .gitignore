@@ -482,3 +482,32 @@ monodroid*.msi
 *.VC.opendb
 
 artifacts/
+
+# Build output directories
+bin/
+obj/
+
+# MonoGame specific
+Content/bin/
+Content/obj/
+# Ignore all files in Content/bin and Content/obj, but not the directories themselves
+Content/bin/*
+Content/obj/*
+# Exclude specific content assets if they are generated or not meant to be tracked
+# For example, if you have a Content.mgcb file and it generates .xnb files, you might ignore .xnb
+# *.xnb
+
+# Package Manager files
+packages/
+*.nupkg
+project.lock.json
+
+# Operating System files
+.DS_Store # Mac
+Thumbs.db # Windows
+desktop.ini # Windows
+
+# Temporary files
+*.~
+*.tmp
+*.temp
