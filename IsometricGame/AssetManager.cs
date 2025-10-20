@@ -56,47 +56,53 @@ namespace IsometricGame
             var playerSprite = CreateDiamondTexture(graphicsDevice, 16, 32, Constants.PlayerColorGreen);
             Images["player_idle_south"] = playerSprite;
             Images["player_idle_west"] = playerSprite;
-            Images["player_idle_north"] = playerSprite; // ADICIONADO
-            Images["player_idle_east"] = playerSprite;  // ADICIONADO
+            Images["player_idle_north"] = playerSprite;
+            Images["player_idle_east"] = playerSprite;
 
-            Images["icon"] = playerSprite;            
+            Images["icon"] = playerSprite;
             Images["bullet_player"] = CreateRectangleTexture(graphicsDevice, 8, 8, Color.Yellow);
             Images["bullet_enemy"] = CreateRectangleTexture(graphicsDevice, 8, 8, Color.Magenta);
+
             var enemySprite = CreateDiamondTexture(graphicsDevice, 16, 32, Color.DarkRed);
             Images["enemy1_idle_south"] = enemySprite;
             Images["enemy1_idle_west"] = enemySprite;
-            Images["enemy1_idle_north"] = enemySprite; // ADICIONADO
-            Images["enemy1_idle_east"] = enemySprite;  // ADICIONADO
+            Images["enemy1_idle_north"] = enemySprite;
+            Images["enemy1_idle_east"] = enemySprite;
 
-            // Cria uma textura de "chão" baseada no IsoTileSize
-            var floorTile = CreateDiamondTexture(
-                graphicsDevice,
-                Constants.IsoTileSize.X, // 64
-                Constants.IsoTileSize.Y, // 32
-                Color.DarkGreen);
-            Images["tile_floor"] = content.Load<Texture2D>("sprites/tiles/grass_tile1");
+            // --- CARREGAMENTO DE TILES (LIMPO) ---
+            // (Certifique-se que todos estes arquivos existem no seu Content.mgcb)
 
-            // 2. Removemos o código que gerava o chão placeholder
-            /* var floorTile = CreateDiamondTexture(
-                graphicsDevice, 
-                Constants.IsoTileSize.X, // 64
-                Constants.IsoTileSize.Y, // 32
-                Color.DarkGreen);
-            Images["tile_floor"] = floorTile;
-            */
+            // Grama
+            Images["tile_grass1"] = content.Load<Texture2D>("sprites/tiles/grass_tile1");
+            Images["tile_grass2"] = content.Load<Texture2D>("sprites/tiles/grass_tile2");
+            Images["tile_grass3"] = content.Load<Texture2D>("sprites/tiles/grass_tile3");
 
-            // 3. ATUALIZAÇÃO AUTOMÁTICA DA PAREDE:
-            // O código da parede (wallTile) usa Constants.IsoTileSize.X.
-            // Como mudamos o X para 32, a parede agora será criada
-            // como um losango 32x32, combinando com seu novo tile.
-            // Nenhuma mudança é necessária aqui.
-            Images["tile_wall"] = content.Load<Texture2D>("sprites/tiles/grass_tile3");
+            // Terra
+            Images["tile_dirt1"] = content.Load<Texture2D>("sprites/tiles/dirt_tile1");
+            Images["tile_dirt2"] = content.Load<Texture2D>("sprites/tiles/dirt_tile2");
+            Images["tile_dirt3"] = content.Load<Texture2D>("sprites/tiles/dirt_tile3");
+
+            // Água
+            Images["water_tile1"] = content.Load<Texture2D>("sprites/tiles/water_tile1");
+            Images["water_tile2"] = content.Load<Texture2D>("sprites/tiles/water_tile2");
+            Images["water_tile3"] = content.Load<Texture2D>("sprites/tiles/water_tile3");
+
+            // Rocha
+            Images["rock_tile1"] = content.Load<Texture2D>("sprites/tiles/rock_tile1");
+            Images["rock_tile2"] = content.Load<Texture2D>("sprites/tiles/rock_tile2");
+            Images["rock_tile3"] = content.Load<Texture2D>("sprites/tiles/rock_tile3");
+
+            // Parede (Mapeado para rock_tile3 conforme seu código anterior)
+            Images["tile_wall"] = content.Load<Texture2D>("sprites/tiles/rock_tile3");
+            // --- FIM DO CARREGAMENTO DE TILES ---
 
             Sounds["shoot"] = content.Load<SoundEffect>("sound/shoot");
             Sounds["hit"] = content.Load<SoundEffect>("sound/hit");
             Sounds["menu_select"] = content.Load<SoundEffect>("sound/impactMetal_002");
             Sounds["menu_confirm"] = content.Load<SoundEffect>("sound/forceField_001");
+
             Music = content.Load<Song>("sound/victory");
+
             Fonts["captain_32"] = content.Load<SpriteFont>("Captain32");
             Fonts["captain_42"] = content.Load<SpriteFont>("Captain42");
             Fonts["captain_80"] = content.Load<SpriteFont>("Captain80");

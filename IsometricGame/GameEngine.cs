@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System;
 using IsometricGame.Classes;
+using Microsoft.Xna.Framework;
 
 namespace IsometricGame
 {
@@ -12,6 +13,8 @@ namespace IsometricGame
         public static List<EnemyBase> AllEnemies { get; private set; }
         public static List<Bullet> PlayerBullets { get; private set; }
         public static List<Bullet> EnemyBullets { get; private set; }
+
+        public static Dictionary<Vector3, Sprite> SolidTiles { get; private set; }
 
         public static AssetManager Assets { get; set; }
         public static int Level { get; set; }
@@ -25,6 +28,7 @@ namespace IsometricGame
             AllEnemies = new List<EnemyBase>();
             PlayerBullets = new List<Bullet>();
             EnemyBullets = new List<Bullet>();
+            SolidTiles = new Dictionary<Vector3, Sprite>();
             Assets = new AssetManager();
             Random = new Random();
             Level = 1;
@@ -37,6 +41,7 @@ namespace IsometricGame
             AllEnemies.Clear();
             PlayerBullets.Clear();
             EnemyBullets.Clear();
+            SolidTiles.Clear();
             Player = null;
             Level = 1;
         }

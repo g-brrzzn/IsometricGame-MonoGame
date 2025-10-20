@@ -12,7 +12,7 @@ namespace IsometricGame.States
     {
         private Explosion _hitExplosion;
         private Fall _backgroundFall;
-        private MapGenerator _mapGenerator;
+        private MapLoader _mapLoader;
 
         public override void Start()
         {
@@ -22,30 +22,41 @@ namespace IsometricGame.States
             _hitExplosion = new Explosion();
             _backgroundFall = new Fall(300);
 
-            // 1. Gera o mapa PRIMEIRO
-            _mapGenerator = new MapGenerator();
-            _mapGenerator.GenerateMap(); // Isso irá popular GameEngine.AllSprites com tiles
+            // --- INÍCIO DA MODIFICAÇÃO ---
+            // 1. Carrega o mapa do arquivo JSON
+            _mapLoader = new MapLoader();
+            // Certifique-se que o caminho está correto RELATIVO À PASTA BIN/DEBUG/NET8.0/
+            // Como map1.json está em Content/maps e configurado para copiar, este caminho deve funcionar.
+            _mapLoader.LoadMap("Content/maps/map1.json");
+            // --- FIM DA MODIFICAÇÃO ---
 
-            // 2. Adiciona o Player
-            // --- CORREÇÃO: Passa Vector3(x, y, 0) para o construtor do Player ---
-            Vector3 playerStartPos = new Vector3(10, 10, 0); // Posição inicial no meio do "castelo" com Z=0
+
+            // 2. Adiciona o Player em uma posição válida do mapa carregado
+            Vector3 playerStartPos = new Vector3(2, 2, 0); // Exemplo: Posição (2,2) no chão (Z=0)
             GameEngine.Player = new Player(playerStartPos);
-            // --- FIM DA CORREÇÃO ---
-            GameEngine.AllSprites.Add(GameEngine.Player); // Adiciona o player DEPOIS dos tiles
+            GameEngine.AllSprites.Add(GameEngine.Player);
 
-            // 3. Adiciona os Inimigos
-            SpawnEnemies();
+            // 3. Adiciona os Inimigos (talvez ajustar posições baseadas no novo mapa)
+            SpawnEnemies(); // A lógica de spawn pode precisar de ajustes
         }
 
         private void SpawnEnemies()
         {
-            for (int i = 0; i < GameEngine.Level * 5; i++)
+            // Ajuste os limites ou lógica se necessário para o tamanho/layout do mapa
+            for (int i = 0; i < GameEngine.Level * 3; i++) // Reduzi a quantidade inicial
             {
-                float x = GameEngine.Random.Next(-10, 10);
-                float y = GameEngine.Random.Next(-10, 10);
-                if (Math.Abs(x) < 2 && Math.Abs(y) < 2) continue;
-                // Passa Vector3 para SpawnEnemy (já estava correto aqui)
-                SpawnEnemy(typeof(Enemy1), new Vector3(x, y, 0));
+                // Gera posições dentro dos limites do mapa (0 a 19, baseado no JSON)
+                float x = GameEngine.Random.Next(0, 20);
+                float y = GameEngine.Random.Next(0, 20);
+
+                // Evita spawnar perto do player ou em locais "ocupados" (simplificado)
+                if (Vector2.Distance(new Vector2(x, y), new Vector2(GameEngine.Player.WorldPosition.X, GameEngine.Player.WorldPosition.Y)) < 5.0f)
+                {
+                    i--; // Tenta de novo
+                    continue;
+                }
+
+                SpawnEnemy(typeof(Enemy1), new Vector3(x, y, 0)); // Spawn no Z=0
             }
         }
 

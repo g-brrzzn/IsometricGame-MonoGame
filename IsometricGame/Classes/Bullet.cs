@@ -71,27 +71,30 @@ namespace IsometricGame.Classes
         {
             if (Texture != null && !IsRemoved)
             {
-                // Calcula a posição "flutuante"
                 Vector2 floatingScreenPos = ScreenPosition - new Vector2(0, 12);
-
-                // --- INÍCIO DA ADIÇÃO ---
                 Vector2 drawPosition = new Vector2(
                     MathF.Round(floatingScreenPos.X),
                     MathF.Round(floatingScreenPos.Y)
                 );
-                // --- FIM DA ADIÇÃO ---
 
-                float depth = IsoMath.GetDepth(WorldPosition);
+                // --- INÍCIO DA CORREÇÃO DE FLICKERING ---
+                float baseDepth = IsoMath.GetDepth(WorldPosition);
+                const float zLayerBias = 0.001f;
+                const float entityBias = 0.0001f; // Balas também são entidades
+
+                float finalDepth = baseDepth - (WorldPosition.Z * zLayerBias) - entityBias;
+                finalDepth = MathHelper.Clamp(finalDepth, 0f, 1f);
+                // --- FIM DA CORREÇÃO ---
 
                 spriteBatch.Draw(Texture,
-                                 drawPosition, // Usa a posição arredondada
-                                 null,
-                                 Color.White,
-                                 0f,
-                                 Origin,
-                                 1.0f,
-                                 SpriteEffects.None,
-                                 depth);
+                    drawPosition,
+                    null,
+                    Color.White,
+                    0f,
+                    Origin, // A origem (centro) padrão do Sprite.cs está OK para balas.
+                    1.0f,
+                    SpriteEffects.None,
+                    finalDepth); // Usa a profundidade final corrigida
             }
         }
     }

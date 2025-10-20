@@ -18,7 +18,9 @@ namespace IsometricGame
         public static GraphicsDeviceManager _graphicsManagerInstance;
         private GameStateBase _currentState;
         private readonly Dictionary<string, GameStateBase> _states = new();
-        private InputManager _inputManager;
+
+        public static InputManager InputManagerInstance { get; private set; }
+
         private RenderTarget2D _renderTarget;
         private Rectangle _renderDestination;
         private Vector2 _screenShakeOffset = Vector2.Zero;
@@ -92,7 +94,9 @@ namespace IsometricGame
             Window.ClientSizeChanged += (s, e) => CalculateRenderDestination();
 
             GameEngine.Initialize();
-            _inputManager = new InputManager();
+
+            InputManagerInstance = new InputManager();
+
             Camera = new Camera(Constants.InternalResolution.X, Constants.InternalResolution.Y);
             MenuBackgroundFall = new Fall(150);
             Camera.SetZoom(2.0f);
@@ -130,32 +134,38 @@ namespace IsometricGame
             if (GameEngine.Assets.Music != null)
             {
                 MediaPlayer.IsRepeating = true;
-                MediaPlayer.Volume = 0.1f;
+                MediaPlayer.Volume = 0.01f;
                 MediaPlayer.Play(GameEngine.Assets.Music);
             }
         }
 
         protected override void Update(GameTime gameTime)
         {
-            _inputManager.Update();
+            InputManagerInstance.SetScreenConversion(_renderDestination, Constants.InternalResolution);
+            InputManagerInstance.Update();
+
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.F4))
             {
                 Exit();
-                return;            }
+                return;
+            }
             MenuBackgroundFall.Update(dt: (float)gameTime.ElapsedGameTime.TotalSeconds);
-            _currentState.Update(gameTime, _inputManager);
+
+            _currentState.Update(gameTime, InputManagerInstance);
+
             if (_currentState.IsDone)
             {
                 if (!string.IsNullOrEmpty(_currentState.NextState))
                 {
-                    if (_currentState.NextState == "Exit") { Exit(); return; }                    else if (_states.ContainsKey(_currentState.NextState))
+                    if (_currentState.NextState == "Exit") { Exit(); return; }
+                    else if (_states.ContainsKey(_currentState.NextState))
                     {
                         _currentState = _states[_currentState.NextState];
                         _currentState.Start();
                     }
-                    else { /* ... fallback ... */ _currentState = _states["Menu"]; _currentState.Start(); }
+                    else { _currentState = _states["Menu"]; _currentState.Start(); }
                 }
-                else { /* ... fallback ... */ _currentState = _states["Menu"]; _currentState.Start(); }
+                else { _currentState = _states["Menu"]; _currentState.Start(); }
             }
             if (GameEngine.ScreenShake > 0) { GameEngine.ScreenShake--; _screenShakeOffset.X = GameEngine.Random.Next(-4, 5); _screenShakeOffset.Y = GameEngine.Random.Next(-4, 5); } else { _screenShakeOffset = Vector2.Zero; }
             if (_graphics.PreferredBackBufferWidth != Constants.WindowSize.X || _graphics.PreferredBackBufferHeight != Constants.WindowSize.Y || _graphics.IsFullScreen != Constants.SetFullscreen) { CalculateRenderDestination(); }
@@ -163,7 +173,7 @@ namespace IsometricGame
             else if (!(_currentState is GameplayState)) { Camera.Follow(Vector2.Zero); }
             _frameCounter++;
             _frameTimer += gameTime.ElapsedGameTime.TotalSeconds;
-            if (_frameTimer >= 1) { /* ... */ }
+            if (_frameTimer >= 1) { }
 
 
             base.Update(gameTime);
@@ -173,7 +183,6 @@ namespace IsometricGame
             GraphicsDevice.SetRenderTarget(_renderTarget);
             GraphicsDevice.Clear(Constants.BackgroundColor);
 
-            // --- BATCH 1: Fundos da UI (Sem Câmera) ---
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
 
             if (_currentState is MenuState || _currentState is OptionsState || _currentState is GameOverState)
@@ -185,43 +194,34 @@ namespace IsometricGame
             _spriteBatch.End();
 
 
-            // --- BATCH 2: O Mundo (COM Câmera e Zoom) ---
             _spriteBatch.Begin(SpriteSortMode.BackToFront,
-                               BlendState.AlphaBlend,
-                               SamplerState.PointClamp,
-                               null, null, null,
-                               Camera.GetViewMatrix()); // <-- ZOOM APLICADO AQUI
+                                BlendState.AlphaBlend,
+                                SamplerState.PointClamp,
+                                null, null, null,
+                                Camera.GetViewMatrix());
 
             if (_currentState is GameplayState)
             {
-                // Chama o novo método que desenha apenas o mundo
                 ((GameplayState)_currentState).DrawWorld(_spriteBatch);
             }
 
-            _spriteBatch.End(); // Fim do Batch do Mundo
+            _spriteBatch.End();
 
-
-            // --- BATCH 3: A UI (Sem Câmera) ---
             _spriteBatch.Begin(SpriteSortMode.Deferred,
-                               BlendState.AlphaBlend,
-                               SamplerState.PointClamp);
-            // <-- Sem Matriz, usa Coordenadas de Tela
+                                BlendState.AlphaBlend,
+                                SamplerState.PointClamp);
 
-            // Chama o método Draw padrão, que agora só desenha a UI
-            // (Menus, HUD do GameplayState, etc.)
             _currentState.Draw(_spriteBatch, GraphicsDevice);
 
             if (Constants.ShowFPS && !string.IsNullOrEmpty(_fpsDisplay))
             {
-                // Usa a nova função DrawTextScreen
                 DrawUtils.DrawTextScreen(_spriteBatch, _fpsDisplay, GameEngine.Assets.Fonts["captain_32"],
                     new Vector2(10, 10), Color.White, 1.0f);
             }
 
-            _spriteBatch.End(); // Fim do Batch da UI
+            _spriteBatch.End();
 
 
-            // --- BATCH 4: Renderização Final para a Janela ---
             GraphicsDevice.SetRenderTarget(null);
             GraphicsDevice.Clear(Color.Black);
 

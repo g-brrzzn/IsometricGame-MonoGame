@@ -18,7 +18,7 @@ namespace IsometricGame
         };
         public static bool ShowFPS = false;
         public static bool SetFullscreen = false;
-        public static Point WindowSize = Resolutions[2];
+        public static Point WindowSize = Resolutions[3];
         public const int FrameRate = 75;
         public const int MaxLife = 3;
         public const float BaseSpeedMultiplier = 2.0f;

@@ -511,3 +511,7 @@ desktop.ini # Windows
 *.~
 *.tmp
 *.temp
+IsometricGame/code2text.py
+IsometricGame/code2text_output.txt
+IsometricGame/code2text.py
+IsometricGame/code2text_output.txt
