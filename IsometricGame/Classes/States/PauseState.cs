@@ -14,20 +14,14 @@ namespace IsometricGame.States
         {
             base.Start();
             _selected = 0;
-            if (GameEngine.Player != null && !GameEngine.Player.IsRemoved) // Also check IsRemoved for safety
-            {
-                // Follow player only if they exist and are active
+            if (GameEngine.Player != null && !GameEngine.Player.IsRemoved)            {
                 Game1.Camera.Follow(GameEngine.Player.ScreenPosition);
             }
             else
             {
-                // If player is null or removed, what should the camera do?
-                // Option 1: Follow the origin (0,0)
                 Game1.Camera.Follow(Vector2.Zero);
                 Debug.WriteLine("PauseState.Start: Player is null or removed. Camera following origin.");
 
-                // Option 2: Keep the camera where it was (do nothing here)
-                // Debug.WriteLine("PauseState.Start: Player is null or removed. Camera position unchanged.");
             }
         }
 

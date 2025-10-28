@@ -7,8 +7,7 @@ namespace IsometricGame.States
 {
     public class MenuState : GameStateBase
     {
-        private List<string> _options = new List<string> { "START", "EDITOR", "OPTIONS", "EXIT" }; // <-- Opção Adicionada
-        private int _selected = 0;
+        private List<string> _options = new List<string> { "START", "EDITOR", "OPTIONS", "EXIT" };        private int _selected = 0;
         private float _titleOffsetY;
 
         public override void Start()
@@ -21,7 +20,6 @@ namespace IsometricGame.States
         {
             _titleOffsetY = (float)(Math.Sin(gameTime.TotalGameTime.TotalSeconds * 2 * Math.PI) * (Constants.InternalResolution.Y * 0.04));
 
-            // Lógica de navegação UP/DOWN permanece igual, pois _options.Count foi atualizado
 
             if (input.IsKeyPressed("DOWN"))
             {
@@ -34,37 +32,31 @@ namespace IsometricGame.States
                 GameEngine.Assets.Sounds["menu_select"]?.Play();
             }
 
-            // --- Lógica de Seleção (START) MODIFICADA ---
             if (input.IsKeyPressed("START"))
             {
                 GameEngine.Assets.Sounds["menu_confirm"]?.Play();
                 IsDone = true;
 
-                // Mapeia a opção selecionada para o estado correspondente
                 switch (_options[_selected])
                 {
                     case "START":
                         NextState = "Game";
                         break;
-                    case "EDITOR": // <-- Nova opção
-                        NextState = "Editor";
+                    case "EDITOR":                        NextState = "Editor";
                         break;
                     case "OPTIONS":
                         NextState = "Options";
                         break;
                     case "EXIT":
-                        NextState = "Exit"; // Ou "ExitConfirm" se preferir
-                        break;
+                        NextState = "Exit";                        break;
                     default:
-                        NextState = "Menu"; // Fallback
-                        break;
+                        NextState = "Menu";                        break;
                 }
             }
             if (input.IsKeyPressed("ESC"))
             {
                 IsDone = true;
-                NextState = "Exit"; // Ou "ExitConfirm"
-            }
+                NextState = "Exit";            }
         }
         public override void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {

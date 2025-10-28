@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
+﻿
 using System;
+using System.Collections.Generic;
 using IsometricGame.Classes;
 using Microsoft.Xna.Framework;
 
@@ -24,6 +25,11 @@ namespace IsometricGame
         public static int ScreenShake { get; set; }
 
         public static Random Random { get; private set; }
+        public static Action<string> OnTextInputComplete { get; set; }
+        public static string TextInputPrompt { get; set; } = "Enter Text:";
+        public static string TextInputDefaultValue { get; set; } = "";
+        public static string TextInputReturnState { get; set; } = "Menu";
+
 
         public static void Initialize()
         {
@@ -37,8 +43,11 @@ namespace IsometricGame
             Level = 1;
             ScreenShake = 0;
             Player = null;
-            TargetWorldPosition = Vector2.Zero;            CursorScreenPosition = Vector2.Zero;            Level = 1;
+            TargetWorldPosition = Vector2.Zero;
+            CursorScreenPosition = Vector2.Zero;
+            Level = 1;
             ScreenShake = 0;
+            OnTextInputComplete = null;
         }
 
         public static void ResetGame()
@@ -49,7 +58,9 @@ namespace IsometricGame
             EnemyBullets.Clear();
             SolidTiles.Clear();
             Player = null;
-            TargetWorldPosition = Vector2.Zero;            CursorScreenPosition = Vector2.Zero;            Level = 1;
+            TargetWorldPosition = Vector2.Zero;
+            CursorScreenPosition = Vector2.Zero;
+            Level = 1;
         }
     }
 }
