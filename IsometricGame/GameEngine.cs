@@ -1,7 +1,7 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using IsometricGame.Classes;
+using IsometricGame.Classes.Upgrades;
 using Microsoft.Xna.Framework;
 
 namespace IsometricGame
@@ -18,6 +18,8 @@ namespace IsometricGame
         public static List<Bullet> PlayerBullets { get; private set; }
         public static List<Bullet> EnemyBullets { get; private set; }
 
+        public static List<ExperienceGem> Gems { get; private set; }
+
         public static Dictionary<Vector3, Sprite> SolidTiles { get; private set; }
 
         public static AssetManager Assets { get; set; }
@@ -25,11 +27,13 @@ namespace IsometricGame
         public static int ScreenShake { get; set; }
 
         public static Random Random { get; private set; }
+
         public static Action<string> OnTextInputComplete { get; set; }
         public static string TextInputPrompt { get; set; } = "Enter Text:";
         public static string TextInputDefaultValue { get; set; } = "";
         public static string TextInputReturnState { get; set; } = "Menu";
 
+        public static List<UpgradeOption> CurrentUpgradeOptions { get; set; }
 
         public static void Initialize()
         {
@@ -37,6 +41,7 @@ namespace IsometricGame
             AllEnemies = new List<EnemyBase>();
             PlayerBullets = new List<Bullet>();
             EnemyBullets = new List<Bullet>();
+            Gems = new List<ExperienceGem>();
             SolidTiles = new Dictionary<Vector3, Sprite>();
             Assets = new AssetManager();
             Random = new Random();
@@ -48,7 +53,9 @@ namespace IsometricGame
             Level = 1;
             ScreenShake = 0;
             OnTextInputComplete = null;
-        }
+
+            CurrentUpgradeOptions = null;
+            UpgradeManager.Initialize();        }
 
         public static void ResetGame()
         {
@@ -56,11 +63,13 @@ namespace IsometricGame
             AllEnemies.Clear();
             PlayerBullets.Clear();
             EnemyBullets.Clear();
+            Gems.Clear();
             SolidTiles.Clear();
             Player = null;
             TargetWorldPosition = Vector2.Zero;
             CursorScreenPosition = Vector2.Zero;
             Level = 1;
+            CurrentUpgradeOptions = null;
         }
     }
 }

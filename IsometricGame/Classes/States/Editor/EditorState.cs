@@ -11,8 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-namespace IsometricGame.States.Editor
-{
+namespace IsometricGame.States.Editor{
     public enum EditorMode
     {
         Tiles,
@@ -26,23 +25,33 @@ namespace IsometricGame.States.Editor
         private EditorMode _currentMode = EditorMode.Tiles;
         private Vector3 _cursorWorldPos = Vector3.Zero;
         private int _currentZLevel = 0;
-        private bool _isDirty = false;
-        private int _changesMade = 0;
-        private const int AUTO_SAVE_THRESHOLD = 5;
+
+        private bool _isDirty = false;        private int _changesMade = 0;        private const int AUTO_SAVE_THRESHOLD = 5;
         private Dictionary<Vector3, Sprite> _mapSprites = new Dictionary<Vector3, Sprite>();
+
         private List<TileMappingEntry> _tilePalette;
         private int _paletteIndex = 0;
         private int _selectedTileId = 0;
         private TileMappingEntry _selectedTileInfo = null;
+
         private MapTrigger _selectedTrigger = null;
+
         private EditorInputHandler _inputHandler;
         private EditorRenderer _renderer;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
         private Texture2D _triggerIconTexture;
+
         private Action<string> _onSavePromptComplete;
         private Action<string> _onNewMapPromptComplete;
+        private Action<string> _onLoadPromptComplete;
         private Action<string> _onAddTriggerIdComplete;
+        private Action<string> _onEditTriggerIdComplete;
+        private Action<string> _onEditTriggerTargetMapComplete;
+        private Action<string> _onEditTriggerRadiusComplete;
+        private Action<string> _onEditTriggerTargetPosXComplete;
+        private Action<string> _onEditTriggerTargetPosYComplete;
+        private Action<string> _onEditTriggerTargetPosZComplete;
 
         public EditorState()
         {
@@ -53,6 +62,7 @@ namespace IsometricGame.States.Editor
         public override void Start()
         {
             base.Start();
+
             if (_renderer == null)
             {
                 _font = GameEngine.Assets.Fonts["captain_32"];
@@ -81,8 +91,13 @@ namespace IsometricGame.States.Editor
 
         public override void End()
         {
-            Game1.Instance.IsMouseVisible = true;
+
+            if (NextState == "Menu" || NextState == "Exit")
+            {
+                Game1.Instance.IsMouseVisible = true;
+            }
         }
+
         public MapData GetCurrentMapData() => _currentMapData;
         public string GetCurrentMapFileName() => _currentMapFileName;
         public EditorMode GetCurrentMode() => _currentMode;
@@ -118,22 +133,30 @@ namespace IsometricGame.States.Editor
         {
             _renderer?.DrawEditorUI(spriteBatch, this);
         }
+
         private void InitializeInputCallbacks()
         {
             _onSavePromptComplete = (fileName) =>
             {
                 if (!string.IsNullOrWhiteSpace(fileName))
                 {
+                    if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        fileName += ".json";
+
                     _currentMapFileName = fileName;
                     Debug.WriteLine($"Nome do arquivo definido como: {fileName}");
                     SaveMap(_currentMapFileName);
                 }
                 else { Debug.WriteLine("Salvamento cancelado: nome de arquivo vazio."); }
             };
+
             _onNewMapPromptComplete = (fileName) =>
             {
                 if (!string.IsNullOrWhiteSpace(fileName))
                 {
+                    if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        fileName += ".json";
+
                     if (_isDirty)
                     {
                         Debug.WriteLine($"Salvando mapa anterior '{_currentMapFileName}' antes de criar novo...");
@@ -142,70 +165,148 @@ namespace IsometricGame.States.Editor
                     CreateNewMap();                }
                 else { Debug.WriteLine("Criação de novo mapa cancelada: nome vazio."); }
             };
+
+            _onLoadPromptComplete = (fileName) =>
+            {
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        fileName += ".json";
+                    LoadMap(fileName);
+                }
+                else { Debug.WriteLine("Carregamento cancelado: nome vazio."); }
+            };
+
             _onAddTriggerIdComplete = (id) =>
             {
-                if (!string.IsNullOrWhiteSpace(id))
+                if (string.IsNullOrWhiteSpace(id)) id = $"Trigger_{_currentMapData.Triggers.Count + 1}";
+            };
+
+            _onEditTriggerIdComplete = (newId) =>
+            {
+                if (_selectedTrigger != null && !string.IsNullOrWhiteSpace(newId))
+                { _selectedTrigger.Id = newId; _isDirty = true; CheckAutoSave(); }
+            };
+            _onEditTriggerTargetMapComplete = (newMap) =>
+            {
+                if (_selectedTrigger != null && !string.IsNullOrWhiteSpace(newMap))
                 {
-                    AddTriggerAt(_cursorWorldPos, id);
+                    if (!newMap.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) newMap += ".json";
+                    _selectedTrigger.TargetMap = newMap; _isDirty = true; CheckAutoSave();
                 }
-                else { Debug.WriteLine("Adição de trigger cancelada: ID vazio."); }
+            };
+            _onEditTriggerRadiusComplete = (newRadiusStr) =>
+            {
+                if (_selectedTrigger != null && float.TryParse(newRadiusStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float newRadius))
+                { _selectedTrigger.Radius = newRadius; _isDirty = true; CheckAutoSave(); }
+                else { Debug.WriteLine($"Input de Raio inválido: '{newRadiusStr}'. Não foi alterado."); }
+            };
+
+            _onEditTriggerTargetPosZComplete = (zStr) => {
+                if (_selectedTrigger != null && float.TryParse(zStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z))
+                {
+                    _selectedTrigger.TargetPosition = new Vector3(_selectedTrigger.TargetPosition.X, _selectedTrigger.TargetPosition.Y, z);
+                    _isDirty = true; CheckAutoSave();
+                    Debug.WriteLine($"Posição de destino do Trigger '{_selectedTrigger.Id}' atualizada para: {_selectedTrigger.TargetPosition}");
+                }
+            };
+            _onEditTriggerTargetPosYComplete = (yStr) => {
+                if (_selectedTrigger != null && float.TryParse(yStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float y))
+                {
+                    _selectedTrigger.TargetPosition = new Vector3(_selectedTrigger.TargetPosition.X, y, _selectedTrigger.TargetPosition.Z);
+                    GameEngine.OnTextInputComplete = _onEditTriggerTargetPosZComplete;
+                    GameEngine.TextInputPrompt = $"Editar Target Z (Atual: {_selectedTrigger.TargetPosition.Z}):";
+                    GameEngine.TextInputDefaultValue = _selectedTrigger.TargetPosition.Z.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    GameEngine.TextInputReturnState = "Editor";
+                    IsDone = true; NextState = "TextInput";
+                }
+            };
+            _onEditTriggerTargetPosXComplete = (xStr) => {
+                if (_selectedTrigger != null && float.TryParse(xStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x))
+                {
+                    _selectedTrigger.TargetPosition = new Vector3(x, _selectedTrigger.TargetPosition.Y, _selectedTrigger.TargetPosition.Z);
+                    GameEngine.OnTextInputComplete = _onEditTriggerTargetPosYComplete;
+                    GameEngine.TextInputPrompt = $"Editar Target Y (Atual: {_selectedTrigger.TargetPosition.Y}):";
+                    GameEngine.TextInputDefaultValue = _selectedTrigger.TargetPosition.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    GameEngine.TextInputReturnState = "Editor";
+                    IsDone = true; NextState = "TextInput";
+                }
             };
         }
+
+        private void RequestTextInput(string prompt, string defaultValue, string returnState, Action<string> onComplete)
+        {
+            GameEngine.TextInputPrompt = prompt;
+            GameEngine.TextInputDefaultValue = defaultValue;
+            GameEngine.TextInputReturnState = returnState;
+            GameEngine.OnTextInputComplete = onComplete;
+            IsDone = true;
+            NextState = "TextInput";
+        }
+
+
 
         public void RequestExit()
         {
             if (_isDirty)
             {
                 Debug.WriteLine("Salvando alterações pendentes antes de sair...");
-                SaveMap(_currentMapFileName);
-            }
+                SaveMap(_currentMapFileName);            }
             IsDone = true;
             NextState = "Menu";
         }
 
         public void RequestSaveMapWithPrompt()
         {
-            GameEngine.OnTextInputComplete = _onSavePromptComplete;
-            GameEngine.TextInputPrompt = "Salvar Mapa Como:";
-            GameEngine.TextInputDefaultValue = _currentMapFileName;
-            GameEngine.TextInputReturnState = "Editor";
-            IsDone = true;
-            NextState = "TextInput";
+            RequestTextInput("Salvar Mapa Como:", _currentMapFileName, "Editor", _onSavePromptComplete);
         }
-        private void RequestSaveMap() { SaveMap(_currentMapFileName); }
 
         public void RequestLoadMapWithPrompt()
         {
-            Debug.WriteLine("Funcionalidade 'Carregar Como...' (Ctrl+L) ainda não implementada.");
-            LoadMap(_currentMapFileName);        }
+            RequestTextInput("Carregar Mapa:", "map1.json", "Editor", _onLoadPromptComplete);
+        }
 
         public void RequestNewMapWithPrompt()
         {
-            GameEngine.OnTextInputComplete = _onNewMapPromptComplete;
-            GameEngine.TextInputPrompt = "Nome do Novo Mapa:";
-            GameEngine.TextInputDefaultValue = $"new_map_{DateTime.Now:yyyyMMddHHmmss}.json";
-            GameEngine.TextInputReturnState = "Editor";
-            IsDone = true;
-            NextState = "TextInput";
+            RequestTextInput("Nome do Novo Mapa:", $"new_map_{DateTime.Now:yyyyMMddHHmmss}.json", "Editor", _onNewMapPromptComplete);
         }
 
         public void RequestAddTriggerAtCursor()
         {
             Vector3 positionToPlace = _cursorWorldPos;
-            GameEngine.OnTextInputComplete = (id) =>
+            Action<string> onIdReceived = (id) =>
             {
-                if (!string.IsNullOrWhiteSpace(id))
-                {
-                    AddTriggerAt(positionToPlace, id);                }
-                else { Debug.WriteLine("Adição de trigger cancelada: ID vazio."); }
-            };
+                if (string.IsNullOrWhiteSpace(id)) id = $"Trigger_{_currentMapData.Triggers.Count + 1}";
+                AddTriggerAt(positionToPlace, id);            };
 
-            GameEngine.TextInputPrompt = "Digite o ID do Trigger:";
-            GameEngine.TextInputDefaultValue = $"Trigger_{_currentMapData.Triggers.Count + 1}";
-            GameEngine.TextInputReturnState = "Editor";
-            IsDone = true;
-            NextState = "TextInput";
+            RequestTextInput("Digite o ID do Trigger:", $"Trigger_{_currentMapData.Triggers.Count + 1}", "Editor", onIdReceived);
         }
+
+        public void RequestEditSelectedTriggerId()
+        {
+            if (_selectedTrigger == null) return;
+            RequestTextInput("Editar ID do Trigger:", _selectedTrigger.Id, "Editor", _onEditTriggerIdComplete);
+        }
+
+        public void RequestEditSelectedTriggerTargetMap()
+        {
+            if (_selectedTrigger == null) return;
+            RequestTextInput("Editar Target Map (ex: cave.json):", _selectedTrigger.TargetMap, "Editor", _onEditTriggerTargetMapComplete);
+        }
+
+        public void RequestEditSelectedTriggerRadius()
+        {
+            if (_selectedTrigger == null) return;
+            RequestTextInput("Editar Raio (ex: 0.5):", _selectedTrigger.Radius.ToString(System.Globalization.CultureInfo.InvariantCulture), "Editor", _onEditTriggerRadiusComplete);
+        }
+
+        public void RequestEditSelectedTriggerTargetPos()
+        {
+            if (_selectedTrigger == null) return;
+            RequestTextInput($"Editar Target X (Atual: {_selectedTrigger.TargetPosition.X}):", _selectedTrigger.TargetPosition.X.ToString(System.Globalization.CultureInfo.InvariantCulture), "Editor", _onEditTriggerTargetPosXComplete);
+        }
+
+
         public void SwitchEditorMode() { _currentMode = (_currentMode == EditorMode.Tiles) ? EditorMode.Triggers : EditorMode.Tiles; _selectedTrigger = null; Debug.WriteLine($"Mode switched to: {_currentMode}"); }
         public void SetCurrentZLevel(int z) { if (z >= 0 && z <= Constants.MaxZLevel) { _currentZLevel = z; _selectedTrigger = null; Debug.WriteLine($"Current Z-Level: {_currentZLevel}"); } }
         public void MoveCamera(Vector2 moveAmount) { Game1.Camera.Follow(Game1.Camera.Position + moveAmount); }
@@ -216,9 +317,12 @@ namespace IsometricGame.States.Editor
         public void EraseTileAtCursor() { PlaceTile(_cursorWorldPos, 0); }
         public void SelectTriggerAtCursor() { SelectTriggerNear(_cursorWorldPos); }
         public void RemoveSelectedTrigger() { if (_selectedTrigger != null) RemoveTrigger(_selectedTrigger); else Debug.WriteLine("No trigger selected to remove."); }
+        private void RequestSaveMap() { SaveMap(_currentMapFileName); }
+
+
 
         private void InitializePalette()
-        { /* ... (mesmo código de antes) ... */
+        {
             string sampleMapPath = Path.Combine("Content", "maps", "map1.json");
             _tilePalette = new List<TileMappingEntry>();
             if (File.Exists(sampleMapPath)) { try { string jsonContent = File.ReadAllText(sampleMapPath); var sampleMapData = JsonConvert.DeserializeObject<MapData>(jsonContent); if (sampleMapData?.TileMapping != null) { _tilePalette.AddRange(sampleMapData.TileMapping); } } catch (Exception ex) { Debug.WriteLine($"Erro ao carregar paleta de {sampleMapPath}: {ex.Message}"); } } else { Debug.WriteLine($"Arquivo de mapa de exemplo para paleta não encontrado: {sampleMapPath}"); }
@@ -226,30 +330,34 @@ namespace IsometricGame.States.Editor
             _paletteIndex = 0;
             _selectedTileId = _tilePalette.Count > 0 ? _tilePalette[0].Id : 0;
         }
+
         private void UpdateSelectedTileInfo()
-        { /* ... (mesmo código de antes) ... */
+        {
             if (_tilePalette == null || _tilePalette.Count == 0) { _selectedTileInfo = null; _selectedTileId = 0; return; }
             _selectedTileInfo = _tilePalette.FirstOrDefault(t => t.Id == _selectedTileId);
             if (_selectedTileInfo == null) { _paletteIndex = 0; _selectedTileId = _tilePalette[0].Id; _selectedTileInfo = _tilePalette[0]; }
             _paletteIndex = _tilePalette.FindIndex(t => t.Id == _selectedTileId); if (_paletteIndex < 0) _paletteIndex = 0;
         }
+
         private void CreateNewMap(int width = 30, int height = 30)
-        { /* ... (mesmo código de antes) ... */
+        {
             _currentMapData = new MapData { Width = width, Height = height, TileMapping = new List<TileMappingEntry>(_tilePalette ?? new List<TileMappingEntry>()), Layers = new List<MapLayer>(), Triggers = new List<MapTrigger>() };
             _currentMapData.Layers.Add(new MapLayer { Name = $"Ground (Z=0)", ZLevel = 0, Data = Enumerable.Repeat(0, width * height).ToList() });
             RebuildMapSprites();
             _selectedTrigger = null;
-            _isDirty = false;            _changesMade = 0;            Debug.WriteLine($"Novo mapa criado ({width}x{height}).");
+            _isDirty = false;            _changesMade = 0;            Debug.WriteLine($"Novo mapa criado ({width}x{height}) com nome '{_currentMapFileName}'.");
         }
+
         private void RebuildMapSprites()
-        { /* ... (mesmo código de antes) ... */
+        {
             _mapSprites.Clear(); if (_currentMapData?.Layers == null || _currentMapData.Width <= 0) return;
             Dictionary<int, TileMappingEntry> tileLookup = new Dictionary<int, TileMappingEntry>(); if (_currentMapData.TileMapping != null) { try { tileLookup = _currentMapData.TileMapping.ToDictionary(entry => entry.Id, entry => entry); } catch (ArgumentException ex) { Debug.WriteLine($"IDs duplicados no tileMapping: {ex.Message}"); } }
             foreach (var layer in _currentMapData.Layers.OrderBy(l => l.ZLevel)) { if (layer.Data == null) continue; for (int i = 0; i < layer.Data.Count; i++) { int tileId = layer.Data[i]; if (tileId == 0) continue; int x = i % _currentMapData.Width; int y = i / _currentMapData.Width; Vector3 worldPos = new Vector3(x, y, layer.ZLevel); if (tileLookup.TryGetValue(tileId, out var tileInfo) && GameEngine.Assets.Images.TryGetValue(tileInfo.AssetName, out var texture)) { _mapSprites[worldPos] = new Sprite(texture, worldPos); } } }
             Debug.WriteLine($"Sprites reconstruídos: {_mapSprites.Count} tiles.");
         }
+
         private void PlaceTile(Vector3 worldPos, int tileId)
-        { /* ... (mesmo código de antes, mas com auto-save) ... */
+        {
             if (_currentMapData == null || _currentMapData.Width <= 0) return;
             if (worldPos.X < 0 || worldPos.X >= _currentMapData.Width || worldPos.Y < 0 || worldPos.Y >= _currentMapData.Height || worldPos.Z < 0 || worldPos.Z > Constants.MaxZLevel) return;
             int x = (int)worldPos.X; int y = (int)worldPos.Y; int z = (int)worldPos.Z;
@@ -257,6 +365,7 @@ namespace IsometricGame.States.Editor
             if (targetLayer == null) { if (tileId == 0) return; if (_currentMapData.Layers == null) _currentMapData.Layers = new List<MapLayer>(); targetLayer = new MapLayer { Name = $"Layer (Z={z})", ZLevel = z, Data = Enumerable.Repeat(0, _currentMapData.Width * _currentMapData.Height).ToList() }; _currentMapData.Layers.Add(targetLayer); _currentMapData.Layers.Sort((a, b) => a.ZLevel.CompareTo(b.ZLevel)); Debug.WriteLine($"Criada camada Z={z}"); }
             int expectedSize = _currentMapData.Width * _currentMapData.Height; if (targetLayer.Data == null || targetLayer.Data.Count != expectedSize) { Debug.WriteLine($"Corrigindo array 'Data' para camada Z={z}."); targetLayer.Data = Enumerable.Repeat(0, expectedSize).ToList(); }
             int index = y * _currentMapData.Width + x; if (index < 0 || index >= targetLayer.Data.Count) { Debug.WriteLine($"Índice inválido ({index}) ao colocar tile."); return; }
+
             if (targetLayer.Data[index] != tileId)
             {
                 targetLayer.Data[index] = tileId;
@@ -266,58 +375,119 @@ namespace IsometricGame.States.Editor
                 CheckAutoSave();
             }
         }
+
         private void SelectTriggerNear(Vector3 clickPos)
-        { /* ... (mesmo código de antes) ... */
+        {
             if (_currentMapData?.Triggers == null) return; MapTrigger foundTrigger = null; float closestDistSq = 0.3f * 0.3f;
             foreach (var trigger in _currentMapData.Triggers) { if (Math.Abs(trigger.Position.Z - clickPos.Z) < 0.1f) { float distSq = Vector2.DistanceSquared(new Vector2(trigger.Position.X, trigger.Position.Y), new Vector2(clickPos.X, clickPos.Y)); if (distSq <= closestDistSq) { foundTrigger = trigger; closestDistSq = distSq; } } }
             _selectedTrigger = foundTrigger; Debug.WriteLine($"Trigger selecionado: {(_selectedTrigger?.Id ?? "None")}");
         }
+
         private void AddTriggerAt(Vector3 worldPos, string id)
         {
             if (_currentMapData == null || _currentMapData.Width <= 0) return; if (_currentMapData.Triggers == null) _currentMapData.Triggers = new List<MapTrigger>(); if (worldPos.X < 0 || worldPos.X >= _currentMapData.Width || worldPos.Y < 0 || worldPos.Y >= _currentMapData.Height) return;
+
             var newTrigger = new MapTrigger
             {
                 Id = id,                Position = worldPos,
-                TargetMap = "changeme.json",                TargetPosition = Vector3.Zero,                Radius = 0.5f            };
+                TargetMap = "changeme.json",
+                TargetPosition = Vector3.Zero,
+                Radius = 0.5f
+            };
+
             _currentMapData.Triggers.Add(newTrigger);
             _selectedTrigger = newTrigger;
             Debug.WriteLine($"Novo trigger adicionado em {worldPos}. ID: {newTrigger.Id}");
+
             _isDirty = true;
             _changesMade++;
             CheckAutoSave();
         }
+
         private void RemoveTrigger(MapTrigger triggerToRemove)
-        { /* ... (mesmo código de antes, mas com auto-save) ... */
-            if (_currentMapData?.Triggers == null || triggerToRemove == null) return; bool removed = _currentMapData.Triggers.Remove(triggerToRemove); if (removed)
+        {
+            if (_currentMapData?.Triggers == null || triggerToRemove == null) return;
+            bool removed = _currentMapData.Triggers.Remove(triggerToRemove);
+            if (removed)
             {
-                Debug.WriteLine($"Trigger '{triggerToRemove.Id ?? "(sem ID)"}' removido."); if (_selectedTrigger == triggerToRemove) _selectedTrigger = null;
+                Debug.WriteLine($"Trigger '{triggerToRemove.Id ?? "(sem ID)"}' removido.");
+                if (_selectedTrigger == triggerToRemove) _selectedTrigger = null;
+
                 _isDirty = true;
                 _changesMade++;
                 CheckAutoSave();
             }
-            else { Debug.WriteLine($"Falha ao remover trigger '{triggerToRemove.Id ?? "(sem ID)"}'."); }
-        }
-        private void SaveMap(string fileName)
-        { /* ... (mesmo código de antes, com _isDirty = false) ... */
-            if (_currentMapData == null) { Debug.WriteLine("SaveMap: Nenhum dado de mapa para salvar."); return; }
-            _currentMapData.TileMapping = new List<TileMappingEntry>(_tilePalette ?? new List<TileMappingEntry>()); string directory = Path.Combine("Content", "maps"); string filePath = Path.Combine(directory, fileName); Debug.WriteLine($"Tentando salvar mapa em: {filePath}"); try
+            else
             {
-                Directory.CreateDirectory(directory); string jsonContent = JsonConvert.SerializeObject(_currentMapData, Formatting.Indented, new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore }); File.WriteAllText(filePath, jsonContent); Debug.WriteLine($"Mapa salvo com sucesso.");
-                _isDirty = false;            }
-            catch (Exception ex) { Debug.WriteLine($"Erro ao salvar mapa em {filePath}: {ex.Message}"); }
+                Debug.WriteLine($"Falha ao remover trigger '{triggerToRemove.Id ?? "(sem ID)"}'.");
+            }
         }
+
+        private void SaveMap(string fileName)
+        {
+            if (_currentMapData == null) { Debug.WriteLine("SaveMap: Nenhum dado de mapa para salvar."); return; }
+            _currentMapData.TileMapping = new List<TileMappingEntry>(_tilePalette ?? new List<TileMappingEntry>());
+            string directory = Path.Combine("Content", "maps");
+            string filePath = Path.Combine(directory, fileName);
+            Debug.WriteLine($"Tentando salvar mapa em: {filePath}");
+            try
+            {
+                Directory.CreateDirectory(directory);
+                string jsonContent = JsonConvert.SerializeObject(_currentMapData, Formatting.Indented, new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore });
+                File.WriteAllText(filePath, jsonContent);
+                Debug.WriteLine($"Mapa salvo com sucesso.");
+                _isDirty = false;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Erro ao salvar mapa em {filePath}: {ex.Message}");
+            }
+        }
+
         private void LoadMap(string fileName)
-        { /* ... (mesmo código de antes, com reset de _isDirty) ... */
+        {
             string filePath = Path.Combine("Content", "maps", fileName); Debug.WriteLine($"Tentando carregar mapa: {filePath}");
-            if (!File.Exists(filePath)) { Debug.WriteLine("Arquivo não encontrado. Criando novo mapa padrão."); _currentMapFileName = fileName; CreateNewMap(); return; }            try { string jsonContent = File.ReadAllText(filePath); var loadedData = JsonConvert.DeserializeObject<MapData>(jsonContent); if (loadedData == null) { Debug.WriteLine($"Falha ao desserializar {filePath}. Criando novo mapa."); _currentMapFileName = fileName; CreateNewMap(); } else { _currentMapData = loadedData; _currentMapFileName = fileName; if (_currentMapData.Layers == null) _currentMapData.Layers = new List<MapLayer>(); if (_currentMapData.Triggers == null) _currentMapData.Triggers = new List<MapTrigger>(); if (_currentMapData.TileMapping == null) _currentMapData.TileMapping = new List<TileMappingEntry>(); if (_currentMapData.TileMapping.Count > 0) { _tilePalette = new List<TileMappingEntry>(_currentMapData.TileMapping); Debug.WriteLine($"Paleta atualizada com base no mapa ({_tilePalette.Count} tiles)."); } else { Debug.WriteLine("Mapa sem tileMapping. Mantendo paleta anterior."); _currentMapData.TileMapping = new List<TileMappingEntry>(_tilePalette ?? new List<TileMappingEntry>()); } UpdateSelectedTileInfo(); RebuildMapSprites(); _selectedTrigger = null; Debug.WriteLine($"Mapa {fileName} carregado. {_currentMapData.Layers.Count} camadas, {_currentMapData.Triggers.Count} triggers."); } } catch (Exception ex) { Debug.WriteLine($"Erro ao carregar mapa {filePath}: {ex.Message}. Criando novo mapa."); _currentMapFileName = fileName; CreateNewMap(); }
-            _isDirty = false;            _changesMade = 0;        }
+            if (!File.Exists(filePath))
+            {
+                Debug.WriteLine("Arquivo não encontrado. Criando novo mapa padrão.");
+                _currentMapFileName = fileName;
+                CreateNewMap();
+                return;            }
+            try
+            {
+                string jsonContent = File.ReadAllText(filePath);
+                var loadedData = JsonConvert.DeserializeObject<MapData>(jsonContent);
+                if (loadedData == null) { Debug.WriteLine($"Falha ao desserializar {filePath}. Criando novo mapa."); _currentMapFileName = fileName; CreateNewMap(); }
+                else
+                {
+                    _currentMapData = loadedData; _currentMapFileName = fileName;
+                    if (_currentMapData.Layers == null) _currentMapData.Layers = new List<MapLayer>();
+                    if (_currentMapData.Triggers == null) _currentMapData.Triggers = new List<MapTrigger>();
+                    if (_currentMapData.TileMapping == null) _currentMapData.TileMapping = new List<TileMappingEntry>();
+                    if (_currentMapData.TileMapping.Count > 0) { _tilePalette = new List<TileMappingEntry>(_currentMapData.TileMapping); Debug.WriteLine($"Paleta atualizada com base no mapa ({_tilePalette.Count} tiles)."); }
+                    else { Debug.WriteLine("Mapa sem tileMapping. Mantendo paleta anterior."); _currentMapData.TileMapping = new List<TileMappingEntry>(_tilePalette ?? new List<TileMappingEntry>()); }
+                    UpdateSelectedTileInfo(); RebuildMapSprites(); _selectedTrigger = null;
+                    Debug.WriteLine($"Mapa {fileName} carregado. {_currentMapData.Layers.Count} camadas, {_currentMapData.Triggers.Count} triggers.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Erro ao carregar mapa {filePath}: {ex.Message}. Criando novo mapa.");
+                _currentMapFileName = fileName;
+                CreateNewMap();
+            }
+
+            _isDirty = false;
+            _changesMade = 0;
+        }
+
         private void CheckAutoSave()
         {
             if (_isDirty && _changesMade > 0 && (_changesMade % AUTO_SAVE_THRESHOLD == 0))
             {
                 Debug.WriteLine($"Auto-salvando... ({_changesMade} alterações totais).");
-                SaveMap(_currentMapFileName);            }
+                SaveMap(_currentMapFileName);
+            }
         }
-
     }
 }

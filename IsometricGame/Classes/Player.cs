@@ -12,11 +12,22 @@ namespace IsometricGame.Classes
         private Dictionary<string, Texture2D> _sprites;
         private string _currentDirection = "south";
 
-        private double _shotDelay = 0.25;
-        private double _lastShot;
+        public int Level { get; private set; } = 1;
+        public int Experience { get; private set; } = 0;
+        public int ExperienceToNextLevel { get; private set; } = 5;
+        public int MaxLife { get; private set; } = Constants.MaxLife;
 
-        private bool _movingRight, _movingLeft, _movingUp, _movingDown, _firing;
-        private float _speed = 6.0f;
+        private float _attackCooldown = 0.8f;
+        private float _attackTimer = 0f;
+        private float _attackRange = 8.0f;
+        private float _moveSpeedModifier = 1.0f;
+        private float _knockbackStrength = 0f;
+        public float MagnetRange { get; private set; } = 3.5f;        public int ProjectileCount { get; private set; } = 1;
+        public int PiercingCount { get; private set; } = 0;
+
+        private bool _movingRight, _movingLeft, _movingUp, _movingDown;
+        private float _baseSpeed = 6.0f;
+
         public int Life { get; private set; }
         public Explosion ExplosionEffect { get; private set; }
         private double _lastHit;
@@ -24,24 +35,54 @@ namespace IsometricGame.Classes
         private const float _collisionRadius = .35f;
         private bool _isInvincible = false;
 
-
         public Player(Vector3 worldPos) : base(null, worldPos)
         {
             _sprites = new Dictionary<string, Texture2D>
-      {
-        { "south", GameEngine.Assets.Images["player_idle_south"] },
-        { "west", GameEngine.Assets.Images["player_idle_west"] },
-        { "north", GameEngine.Assets.Images["player_idle_north"] },
-        { "east", GameEngine.Assets.Images["player_idle_east"] }
-      };
+            {
+                { "south", GameEngine.Assets.Images["player_idle_south"] },
+                { "west", GameEngine.Assets.Images["player_idle_west"] },
+                { "north", GameEngine.Assets.Images["player_idle_north"] },
+                { "east", GameEngine.Assets.Images["player_idle_east"] }
+            };
 
             if (_sprites.ContainsKey(_currentDirection))
                 UpdateTexture(_sprites[_currentDirection]);
             if (Texture != null)
-                Origin = new Vector2(Texture.Width / 2f, Texture.Height);
+                Origin = new Vector2(Texture.Width / 2f, Texture.Height);
 
-            Life = Constants.MaxLife;
+            MaxLife = Constants.MaxLife;
+            Life = MaxLife;
             ExplosionEffect = new Explosion();
+        }
+
+        public void BuffAttackSpeed(float percentage)
+        {
+            _attackCooldown *= (1.0f - percentage);
+            _attackCooldown = Math.Max(0.1f, _attackCooldown);
+        }
+        public void BuffMoveSpeed(float percentage) => _moveSpeedModifier += percentage;
+        public void BuffRange(float percentage) => _attackRange *= (1.0f + percentage);
+        public void BuffMaxLife(int amount) { MaxLife += amount; Life += amount; }
+        public void Heal(int amount) => Life = Math.Min(Life + amount, MaxLife);
+        public void BuffKnockback(float amount) => _knockbackStrength += amount;
+
+        public void BuffMagnet(float amount) => MagnetRange += amount;
+        public void BuffProjectileCount(int amount) => ProjectileCount += amount;
+        public void BuffPiercing(int amount) => PiercingCount += amount;
+
+        public bool AddExperience(int amount)
+        {
+            Experience += amount;
+            if (Experience >= ExperienceToNextLevel) return true;
+            return false;
+        }
+
+        public void ConfirmLevelUp()
+        {
+            Level++;
+            Experience -= ExperienceToNextLevel;
+            ExperienceToNextLevel = (int)(ExperienceToNextLevel * 1.2f) + 5;
+            if (Life < MaxLife) Life++;
         }
 
         public void GetInput(InputManager input)
@@ -50,36 +91,54 @@ namespace IsometricGame.Classes
             _movingRight = input.IsKeyDown("RIGHT");
             _movingUp = input.IsKeyDown("UP");
             _movingDown = input.IsKeyDown("DOWN");
+        }
 
-            _firing = input.IsKeyDown("FIRE") || input.IsLeftMouseButtonDown();
-        }
-
-        private Vector2 GetAimDirection(InputManager input)
+        private void HandleAutoAttack(GameTime gameTime, float dt)
         {
-            Vector2 targetWorldPos = GameEngine.TargetWorldPosition;            
-            Vector2 playerWorldPos = new Vector2(this.WorldPosition.X, this.WorldPosition.Y);
-            Vector2 aimDirection = targetWorldPos - playerWorldPos;
-            if (aimDirection.LengthSquared() > 0)
-            {
-                aimDirection.Normalize();
-            }
-            return aimDirection;        }
+            _attackTimer -= dt;
 
-        private void Fire(GameTime gameTime, Vector2 worldAimDirection)
+            if (_attackTimer <= 0)
+            {
+                EnemyBase closestEnemy = null;
+                float closestDistSq = float.MaxValue;
+                float rangeSq = _attackRange * _attackRange;
+
+                foreach (var enemy in GameEngine.AllEnemies)
+                {
+                    if (enemy.IsRemoved) continue;
+                    float distSq = Vector2.DistanceSquared(new Vector2(WorldPosition.X, WorldPosition.Y), new Vector2(enemy.WorldPosition.X, enemy.WorldPosition.Y));
+                    if (distSq < rangeSq && distSq < closestDistSq) { closestDistSq = distSq; closestEnemy = enemy; }
+                }
+
+                if (closestEnemy != null)
+                {
+                    Vector2 direction = new Vector2(closestEnemy.WorldPosition.X - WorldPosition.X, closestEnemy.WorldPosition.Y - WorldPosition.Y);
+                    if (direction != Vector2.Zero) direction.Normalize();
+
+                    Fire(gameTime, direction);
+                    _attackTimer = _attackCooldown;
+                }
+            }
+        }
+
+        private void Fire(GameTime gameTime, Vector2 worldAimDirection)
         {
-            _lastShot = gameTime.TotalGameTime.TotalSeconds;
-
-            Vector2 shotDirection = worldAimDirection;
-
-            if (shotDirection.LengthSquared() == 0)
+            var options = new BulletOptions
             {
-                shotDirection = new Vector2(1, 1);
-            }
+                SpeedScale = 12.0f,
+                Piercing = this.PiercingCount,
+                Knockback = this._knockbackStrength,
+                Count = this.ProjectileCount,
+                SpreadArc = 0.5f            };
+
+            string pattern = (this.ProjectileCount > 1) ? "multishot" : "single";
 
             var bullets = Bullet.CreateBullets(
-              pattern: "single",
+              pattern: pattern,
               worldPos: new Vector2(this.WorldPosition.X, this.WorldPosition.Y),
-              worldDirection: shotDirection,                      isFromPlayer: true
+              worldDirection: worldAimDirection,
+              isFromPlayer: true,
+              options: options
             );
 
             foreach (var bullet in bullets)
@@ -87,176 +146,94 @@ namespace IsometricGame.Classes
                 GameEngine.PlayerBullets.Add(bullet);
                 GameEngine.AllSprites.Add(bullet);
             }
-            GameEngine.Assets.Sounds["shoot"].Play();
+            GameEngine.Assets.Sounds["shoot"].Play(0.4f, 0.2f, 0f);
         }
 
-        private void Animate(Vector2 worldAimDirection)
+        private void Animate(Vector2 moveDirection)
         {
             string targetDirection = _currentDirection;
-
-            if (_movingUp) targetDirection = "north";
-            else if (_movingDown) targetDirection = "south";
-            else if (_movingLeft) targetDirection = "west";
-            else if (_movingRight) targetDirection = "east";
-
-            if (worldAimDirection.LengthSquared() > 0)
+            if (moveDirection.LengthSquared() > 0)
             {
-                Vector2 screenAim = new Vector2(
-                    worldAimDirection.X - worldAimDirection.Y,                    
-                    worldAimDirection.X + worldAimDirection.Y                
-                    );
-
-                if (Math.Abs(screenAim.X) > Math.Abs(screenAim.Y))
-                {
-                    targetDirection = (screenAim.X > 0) ? "east" : "west";
-                }
-                else
-                {
-                    targetDirection = (screenAim.Y > 0) ? "south" : "north";
-                }
+                if (moveDirection.Y > 0) targetDirection = "south";
+                else if (moveDirection.Y < 0) targetDirection = "north";
+                else if (moveDirection.X > 0) targetDirection = "east";
+                else if (moveDirection.X < 0) targetDirection = "west";
             }
-
             _currentDirection = targetDirection;
-
-            if (_sprites.ContainsKey(_currentDirection))
-                UpdateTexture(_sprites[_currentDirection]);
-            if (Texture != null)
-                Origin = new Vector2(Texture.Width / 2f, Texture.Height);
+            if (_sprites.ContainsKey(_currentDirection)) UpdateTexture(_sprites[_currentDirection]);
+            if (Texture != null) Origin = new Vector2(Texture.Width / 2f, Texture.Height);
         }
 
-        public override void Update(GameTime gameTime, float dt)
+        public override void Update(GameTime gameTime, float dt)
         {
-            double totalMilliseconds = gameTime.TotalGameTime.TotalMilliseconds;
-
             GetInput(Game1.InputManagerInstance);
-            Vector2 worldAimDirection = GetAimDirection(Game1.InputManagerInstance);
 
-            ExplosionEffect.Update(dt);
-            Animate(worldAimDirection);            
-            _isInvincible = totalMilliseconds - _lastHit < _invincibilityDuration;
-
-            Vector2 worldDirection = Vector2.Zero;
+            Vector2 worldDirection = Vector2.Zero;
             if (_movingUp) worldDirection += new Vector2(-1, -1);
             if (_movingDown) worldDirection += new Vector2(1, 1);
             if (_movingLeft) worldDirection += new Vector2(-1, 1);
             if (_movingRight) worldDirection += new Vector2(1, -1);
 
-            if (worldDirection != Vector2.Zero)
-            {
-                worldDirection.Normalize();
-            }
+            if (worldDirection != Vector2.Zero) worldDirection.Normalize();
 
-            Vector2 desiredVelocity = worldDirection * _speed;
+            Animate(worldDirection);
+            HandleAutoAttack(gameTime, dt);
 
+            ExplosionEffect.Update(dt);
+            _isInvincible = gameTime.TotalGameTime.TotalMilliseconds - _lastHit < _invincibilityDuration;
 
-            Vector2 movement = desiredVelocity * dt;
+            float currentSpeed = _baseSpeed * _moveSpeedModifier;
+            Vector2 movement = worldDirection * currentSpeed * dt;
 
-            Vector3 nextPos = WorldPosition + new Vector3(movement.X, 0, 0);
-            if (IsCollidingAt(nextPos))
-            {
-                movement.X = 0;
-            }
+            Vector3 nextPos = WorldPosition + new Vector3(movement.X, 0, 0);
+            if (IsCollidingAt(nextPos)) movement.X = 0;
+            nextPos = WorldPosition + new Vector3(0, movement.Y, 0);
+            if (IsCollidingAt(nextPos)) movement.Y = 0;
 
-            nextPos = WorldPosition + new Vector3(0, movement.Y, 0);
-            if (IsCollidingAt(nextPos))
-            {
-                movement.Y = 0;
-            }
-
-            WorldPosition += new Vector3(movement.X, movement.Y, 0);
-
-            UpdateScreenPosition();
-
-            WorldVelocity = (dt > 0) ? new Vector2(movement.X / dt, movement.Y / dt) : Vector2.Zero;
-
-
-            if (_firing && (gameTime.TotalGameTime.TotalSeconds - _lastShot > _shotDelay))
-            {
-                Fire(gameTime, worldAimDirection);            }
+            WorldPosition += new Vector3(movement.X, movement.Y, 0);
+            UpdateScreenPosition();
+            WorldVelocity = (dt > 0) ? new Vector2(movement.X / dt, movement.Y / dt) : Vector2.Zero;
         }
 
-        private bool IsCollidingAt(Vector3 futurePosition)
+        private bool IsCollidingAt(Vector3 futurePosition)
         {
-            float baseZ = futurePosition.Z;
-
-            Vector2 posXY = new Vector2(futurePosition.X, futurePosition.Y);
+            float baseZ = futurePosition.Z;
+            Vector2 posXY = new Vector2(futurePosition.X, futurePosition.Y);
             Vector2 topLeft = posXY + new Vector2(-_collisionRadius, -_collisionRadius);
-            Vector2 topRight = posXY + new Vector2(_collisionRadius, -_collisionRadius);
-            Vector2 bottomLeft = posXY + new Vector2(-_collisionRadius, _collisionRadius);
             Vector2 bottomRight = posXY + new Vector2(_collisionRadius, _collisionRadius);
-
-            Vector3 cellTL = new Vector3(MathF.Round(topLeft.X), MathF.Round(topLeft.Y), baseZ);
-            Vector3 cellTR = new Vector3(MathF.Round(topRight.X), MathF.Round(topRight.Y), baseZ);
-            Vector3 cellBL = new Vector3(MathF.Round(bottomLeft.X), MathF.Round(bottomLeft.Y), baseZ);
+            Vector3 cellTL = new Vector3(MathF.Round(topLeft.X), MathF.Round(topLeft.Y), baseZ);
             Vector3 cellBR = new Vector3(MathF.Round(bottomRight.X), MathF.Round(bottomRight.Y), baseZ);
-
-            if (GameEngine.SolidTiles.ContainsKey(cellTL) || GameEngine.SolidTiles.ContainsKey(cellTL + new Vector3(0, 0, 1)) ||
-        GameEngine.SolidTiles.ContainsKey(cellTR) || GameEngine.SolidTiles.ContainsKey(cellTR + new Vector3(0, 0, 1)) ||
-        GameEngine.SolidTiles.ContainsKey(cellBL) || GameEngine.SolidTiles.ContainsKey(cellBL + new Vector3(0, 0, 1)) ||
-        GameEngine.SolidTiles.ContainsKey(cellBR) || GameEngine.SolidTiles.ContainsKey(cellBR + new Vector3(0, 0, 1)))
-            {
-                return true;            }
-
-            return false;        }
-
+            return GameEngine.SolidTiles.ContainsKey(cellTL) || GameEngine.SolidTiles.ContainsKey(cellBR);
+        }
 
         public void TakeDamage(GameTime gameTime)
         {
-            double totalMilliseconds = gameTime.TotalGameTime.TotalMilliseconds;
             if (!_isInvincible)
             {
                 Life -= 1;
-                _lastHit = totalMilliseconds;
+                _lastHit = gameTime.TotalGameTime.TotalMilliseconds;
                 _isInvincible = true;
                 if (Texture != null)
                     ExplosionEffect.Create(this.ScreenPosition.X, this.ScreenPosition.Y - (this.Texture.Height / 2f), Constants.PlayerColorGreen, speed: -5);
                 GameEngine.Assets.Sounds["hit"].Play();
                 GameEngine.ScreenShake = 15;
-
-                if (Life <= 0)
-                {
-                    Kill();
-                }
+                if (Life <= 0) Kill();
             }
         }
 
-
         public override void Draw(SpriteBatch spriteBatch)
         {
-
-            Color tint = Color.White;
-            if (_isInvincible && !IsRemoved)
+            Color tint = Color.White;
+            if (_isInvincible && !IsRemoved)
             {
-                float flicker = (float)DateTime.Now.TimeOfDay.TotalMilliseconds / 100f;
+                if (((int)(DateTime.Now.TimeOfDay.TotalMilliseconds / 100f)) % 2 == 0) tint = Color.White * 0.5f;
+            }
 
-                if ((int)flicker % 2 == 0)
-                {
-                    tint = Color.White * 0.5f;                }
+            Vector2 drawPosition = new Vector2(MathF.Round(ScreenPosition.X), MathF.Round(ScreenPosition.Y));
+            float baseDepth = IsoMath.GetDepth(WorldPosition);
+            float finalDepth = MathHelper.Clamp(baseDepth - 0.0001f, 0f, 1f);
 
-            }
-
-
-
-            Vector2 drawPosition = new Vector2(
-        MathF.Round(ScreenPosition.X),
-        MathF.Round(ScreenPosition.Y)
-      );
-
-            float baseDepth = IsoMath.GetDepth(WorldPosition);
-            const float zLayerBias = 0.001f;
-            const float entityBias = 0.0001f;
-            float finalDepth = baseDepth - (WorldPosition.Z * zLayerBias) - entityBias;
-            finalDepth = MathHelper.Clamp(finalDepth, 0f, 1f);
-
-            spriteBatch.Draw(Texture,
-                      drawPosition,
-              null,
-              tint,                      0f,
-              Origin,
-              1.0f,
-                      SpriteEffects.None,
-              finalDepth);
-
+            spriteBatch.Draw(Texture, drawPosition, null, tint, 0f, Origin, 1.0f, SpriteEffects.None, finalDepth);
             ExplosionEffect.Draw(spriteBatch);
         }
     }

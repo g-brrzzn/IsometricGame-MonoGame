@@ -66,17 +66,11 @@ namespace IsometricGame
                 for (int x = 0; x < size; x++)
                 {
                     if (x >= center - halfThickness && x <= center + halfThickness)
-                    {
                         data[y * size + x] = color;
-                    }
                     else if (y >= center - halfThickness && y <= center + halfThickness)
-                    {
                         data[y * size + x] = color;
-                    }
                     else
-                    {
                         data[y * size + x] = Color.Transparent;
-                    }
                 }
             }
             texture.SetData(data);
@@ -85,6 +79,8 @@ namespace IsometricGame
 
         public void LoadContent(ContentManager content, GraphicsDevice graphicsDevice)
         {
+            Images["gem"] = CreateDiamondTexture(graphicsDevice, 10, 14, Color.Cyan);
+
             var playerSprite = CreateDiamondTexture(graphicsDevice, 16, 32, Constants.PlayerColorGreen);
             Images["player_idle_south"] = playerSprite;
             Images["player_idle_west"] = playerSprite;
@@ -101,22 +97,10 @@ namespace IsometricGame
             Images["enemy1_idle_north"] = enemySprite;
             Images["enemy1_idle_east"] = enemySprite;
 
-            Images["tile_grass1"] = content.Load<Texture2D>("sprites/tiles/grass_tile1");
-            Images["tile_grass2"] = content.Load<Texture2D>("sprites/tiles/grass_tile2");
-            Images["tile_grass3"] = content.Load<Texture2D>("sprites/tiles/grass_tile3");
-            Images["tile_dirt1"] = content.Load<Texture2D>("sprites/tiles/dirt_tile1");
-            Images["tile_dirt2"] = content.Load<Texture2D>("sprites/tiles/dirt_tile2");
-            Images["tile_dirt3"] = content.Load<Texture2D>("sprites/tiles/dirt_tile3");
-            Images["water_tile1"] = content.Load<Texture2D>("sprites/tiles/water_tile1");
-            Images["water_tile2"] = content.Load<Texture2D>("sprites/tiles/water_tile2");
-            Images["water_tile3"] = content.Load<Texture2D>("sprites/tiles/water_tile3");
-            Images["rock_tile1"] = content.Load<Texture2D>("sprites/tiles/rock_tile1");
-            Images["rock_tile2"] = content.Load<Texture2D>("sprites/tiles/rock_tile2");
-            Images["rock_tile3"] = content.Load<Texture2D>("sprites/tiles/rock_tile3");
-            Images["tile_wall"] = content.Load<Texture2D>("sprites/tiles/rock_tile3");
+            try { Images["tile_grass1"] = content.Load<Texture2D>("sprites/tiles/grass_tile1"); } catch { }
+            try { Images["tile_wall"] = content.Load<Texture2D>("sprites/tiles/rock_tile3"); } catch { }
 
             Images["cursor"] = CreateCrosshairTexture(graphicsDevice, 16, 2, Color.White);
-
 
             Sounds["shoot"] = content.Load<SoundEffect>("sound/shoot");
             Sounds["hit"] = content.Load<SoundEffect>("sound/hit");

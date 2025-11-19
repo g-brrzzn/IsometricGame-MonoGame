@@ -35,7 +35,8 @@ namespace IsometricGame
             { "LOAD_ACTION", new[] { Keys.L } },
             { "NEW_MODIFIER", new[] { Keys.LeftControl, Keys.RightControl } },
             { "NEW_ACTION", new[] { Keys.N } },
-            { "SWITCH_MODE", new[] { Keys.Tab } },            { "DELETE_TRIGGER", new[] { Keys.Delete } },
+            { "SWITCH_MODE", new[] { Keys.Tab } },            
+            { "DELETE_TRIGGER", new[] { Keys.Delete } },
             { "D0", new[] { Keys.D0, Keys.NumPad0 } },
             { "D1", new[] { Keys.D1, Keys.NumPad1 } },
             { "D2", new[] { Keys.D2, Keys.NumPad2 } },
@@ -46,7 +47,11 @@ namespace IsometricGame
             { "D7", new[] { Keys.D7, Keys.NumPad7 } },
             { "D8", new[] { Keys.D8, Keys.NumPad8 } },
             { "D9", new[] { Keys.D9, Keys.NumPad9 } },
-        };
+			{ "EDIT_TRIGGER_TARGET_MAP", new[] { Keys.T } },
+            { "EDIT_TRIGGER_TARGET_POS", new[] { Keys.P } },
+            { "EDIT_TRIGGER_RADIUS", new[] { Keys.R } },
+            { "EDIT_TRIGGER_ID", new[] { Keys.I } },
+		};
 
         public void SetScreenConversion(Rectangle renderDestination, Point internalResolution)
         {

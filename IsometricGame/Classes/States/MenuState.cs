@@ -3,23 +3,27 @@ using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System;
 using System.Diagnostics;
+
 namespace IsometricGame.States
 {
     public class MenuState : GameStateBase
     {
-        private List<string> _options = new List<string> { "START", "EDITOR", "OPTIONS", "EXIT" };        private int _selected = 0;
+        private List<string> _options = new List<string> { "START", "EDITOR", "OPTIONS", "EXIT" };
+        private int _selected = 0;
         private float _titleOffsetY;
 
         public override void Start()
         {
             base.Start();
             _selected = 0;
-            Debug.WriteLine("MenuState Started.");        }
+            Debug.WriteLine("MenuState Started.");
+
+            GameEngine.ResetGame();
+        }
 
         public override void Update(GameTime gameTime, InputManager input)
         {
             _titleOffsetY = (float)(Math.Sin(gameTime.TotalGameTime.TotalSeconds * 2 * Math.PI) * (Constants.InternalResolution.Y * 0.04));
-
 
             if (input.IsKeyPressed("DOWN"))
             {
@@ -42,21 +46,25 @@ namespace IsometricGame.States
                     case "START":
                         NextState = "Game";
                         break;
-                    case "EDITOR":                        NextState = "Editor";
+                    case "EDITOR":
+                        NextState = "Editor";
                         break;
                     case "OPTIONS":
                         NextState = "Options";
                         break;
                     case "EXIT":
-                        NextState = "Exit";                        break;
+                        NextState = "Exit";
+                        break;
                     default:
-                        NextState = "Menu";                        break;
+                        NextState = "Menu";
+                        break;
                 }
             }
             if (input.IsKeyPressed("ESC"))
             {
                 IsDone = true;
-                NextState = "Exit";            }
+                NextState = "Exit";
+            }
         }
         public override void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice)
         {

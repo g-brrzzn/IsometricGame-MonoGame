@@ -81,13 +81,19 @@ namespace IsometricGame.States.Editor
 		private void HandleTriggerInput(InputManager input)
 		{
 			if (input.IsLeftMouseButtonPressed()) { _editorState.SelectTriggerAtCursor(); }
-			if (input.IsRightMouseButtonPressed())
-			{
-				_editorState.RequestAddTriggerAtCursor();			}
-
+			if (input.IsRightMouseButtonPressed()) { _editorState.RequestAddTriggerAtCursor(); }
 			if (input.IsKeyPressed("DELETE_TRIGGER")) { _editorState.RemoveSelectedTrigger(); }
-			Keys[] numberKeys = { Keys.D0, Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9 };
-			for (int z = 0; z < numberKeys.Length; z++) { if (input.IsKeyPressed(numberKeys[z].ToString()) && z <= Constants.MaxZLevel) { _editorState.SetCurrentZLevel(z); break; } }
+
+			if (_editorState.GetSelectedTrigger() != null)
+			{
+				if (input.IsKeyPressed("EDIT_TRIGGER_ID")) { _editorState.RequestEditSelectedTriggerId(); }
+				if (input.IsKeyPressed("EDIT_TRIGGER_TARGET_MAP")) { _editorState.RequestEditSelectedTriggerTargetMap(); }
+				if (input.IsKeyPressed("EDIT_TRIGGER_TARGET_POS")) { _editorState.RequestEditSelectedTriggerTargetPos(); }
+				if (input.IsKeyPressed("EDIT_TRIGGER_RADIUS")) { _editorState.RequestEditSelectedTriggerRadius(); }
+			}
+
+			Keys[] numberKeys = { /* ... */ };
+			for (int z = 0; z < numberKeys.Length; z++) { /* ... */ }
 		}
 	}
 }

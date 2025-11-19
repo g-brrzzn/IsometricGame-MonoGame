@@ -91,6 +91,7 @@ namespace IsometricGame.States.Editor
 		{
 			Vector2 screenPos = IsoMath.WorldToScreen(trigger.Position);
 			int size = (int)(Constants.IsoTileSize.X * 0.6f);
+
 			Rectangle rect = new Rectangle((int)(screenPos.X - size / 2f), (int)(screenPos.Y - size / 2f), size, size);
 
 			if (_triggerIconTexture != null)

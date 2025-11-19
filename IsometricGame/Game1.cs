@@ -66,7 +66,6 @@ namespace IsometricGame
 
             if (Constants.InternalResolution.X <= 0 || Constants.InternalResolution.Y <= 0)
             {
-                Debug.WriteLine("ERROR: Constants.InternalResolution está inválido.");
                 _renderDestination = new Rectangle(0, 0, backBuffer.X, backBuffer.Y);
                 return;
             }
@@ -101,25 +100,26 @@ namespace IsometricGame
 
             InputManagerInstance = new InputManager();
 
-			Camera = new Camera(Constants.InternalResolution.X, Constants.InternalResolution.Y);
-			MenuBackgroundFall = new Fall(150);
-			Camera.SetZoom(2.0f);
+            Camera = new Camera(Constants.InternalResolution.X, Constants.InternalResolution.Y);
+            MenuBackgroundFall = new Fall(150);
+            Camera.SetZoom(2.0f);
 
-			_states.Add("Menu", new MenuState());
-			_states.Add("Game", new GameplayState());
-			_states.Add("Pause", new PauseState());
-			_states.Add("GameOver", new GameOverState());
-			_states.Add("Options", new OptionsState());
-			_states.Add("ExitConfirm", new ExitConfirmState());
-			_states.Add("Exit", new ExitState());
-			_states.Add("Editor", new EditorState());
-			_states.Add("TextInput", new TextInputState());
+            _states.Add("Menu", new MenuState());
+            _states.Add("Game", new GameplayState());
+            _states.Add("Pause", new PauseState());
+            _states.Add("GameOver", new GameOverState());
+            _states.Add("Options", new OptionsState());
+            _states.Add("ExitConfirm", new ExitConfirmState());
+            _states.Add("Editor", new EditorState());
+            _states.Add("TextInput", new TextInputState());
 
-			_currentState = _states["Menu"];
-			_currentState.Start();
+            _states.Add("LevelUp", new LevelUpState());
 
-			base.Initialize();
-		}
+            _currentState = _states["Menu"];
+            _currentState.Start();
+
+            base.Initialize();
+        }
 
         protected override void LoadContent()
         {
@@ -179,23 +179,38 @@ namespace IsometricGame
             }
             if (GameEngine.ScreenShake > 0) { GameEngine.ScreenShake--; _screenShakeOffset.X = GameEngine.Random.Next(-4, 5); _screenShakeOffset.Y = GameEngine.Random.Next(-4, 5); } else { _screenShakeOffset = Vector2.Zero; }
             if (_graphics.PreferredBackBufferWidth != Constants.WindowSize.X || _graphics.PreferredBackBufferHeight != Constants.WindowSize.Y || _graphics.IsFullScreen != Constants.SetFullscreen) { CalculateRenderDestination(); }
-            if (_currentState is GameplayState && GameEngine.Player != null) { Camera.Follow(GameEngine.Player.ScreenPosition); }
-            else if (!(_currentState is GameplayState)) { Camera.Follow(Vector2.Zero); }
+
+            if ((_currentState is GameplayState || _currentState is LevelUpState) && GameEngine.Player != null)
+            {
+                Camera.Follow(GameEngine.Player.ScreenPosition);
+            }
+            else if (!(_currentState is GameplayState))
+            {
+                Camera.Follow(Vector2.Zero);
+            }
+
             _frameCounter++;
             _frameTimer += gameTime.ElapsedGameTime.TotalSeconds;
-            if (_frameTimer >= 1) { }
-
+            if (_frameTimer >= 1)
+            {
+                _fpsDisplay = $"FPS: {_frameCounter}";
+                _frameCounter = 0;
+                _frameTimer -= 1;
+            }
 
             base.Update(gameTime);
         }
+
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.SetRenderTarget(_renderTarget);
             GraphicsDevice.Clear(Constants.BackgroundColor);
 
             _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-            if (_currentState is MenuState || _currentState is OptionsState || _currentState is GameOverState || _currentState is EditorState)            {
-                Color fallColor = Color.DarkSlateGray;                if (_currentState is GameOverState) fallColor = Constants.GameColor;
+            if (_currentState is MenuState || _currentState is OptionsState || _currentState is GameOverState || _currentState is EditorState)
+            {
+                Color fallColor = Color.DarkSlateGray;
+                if (_currentState is GameOverState) fallColor = Constants.GameColor;
                 else if (!(_currentState is EditorState)) fallColor = Color.LightGray;
 
                 MenuBackgroundFall.Draw(_spriteBatch, fallColor);
@@ -208,22 +223,32 @@ namespace IsometricGame
                                SamplerState.PointClamp,
                                null, null, null,
                                Camera.GetViewMatrix());
+
             if (_currentState is GameplayState gameplayStateWorld)
             {
                 gameplayStateWorld.DrawWorld(_spriteBatch);
             }
-            else if (_currentState is EditorState editorStateWorld)            {
-                editorStateWorld.DrawWorld(_spriteBatch);            }
+            else if (_currentState is LevelUpState)
+            {
+                foreach (var sprite in GameEngine.AllSprites)
+                {
+                    if (sprite != null && !sprite.IsRemoved) sprite.Draw(_spriteBatch);
+                }
+            }
+            else if (_currentState is EditorState editorStateWorld)
+            {
+                editorStateWorld.DrawWorld(_spriteBatch);
+            }
 
             _spriteBatch.End();
 
 
-            _spriteBatch.Begin(SpriteSortMode.Deferred,                              BlendState.AlphaBlend,
-                              SamplerState.PointClamp);
+            _spriteBatch.Begin(SpriteSortMode.Deferred,
+                               BlendState.AlphaBlend,
+                               SamplerState.PointClamp);
             _currentState.Draw(_spriteBatch, GraphicsDevice);
             if (Constants.ShowFPS && !string.IsNullOrEmpty(_fpsDisplay))
             {
-                if (_frameTimer >= 1.0f) { /* ... cálculo fps ... */ }
                 DrawUtils.DrawTextScreen(_spriteBatch, _fpsDisplay, GameEngine.Assets.Fonts["captain_32"], new Vector2(15, 10), Color.White, 0.0f);
             }
 
@@ -250,11 +275,5 @@ namespace IsometricGame
 
             base.Draw(gameTime);
         }
-    }
-
-    public class ExitState : GameStateBase
-    {
-        public override void Draw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice) { }
-        public override void Update(GameTime gameTime, InputManager input) { }
     }
 }
